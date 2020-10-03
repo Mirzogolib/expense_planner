@@ -53,7 +53,7 @@ class MyHomePage extends StatefulWidget {
   _MyHomePageState createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver { 
   final List<Transaction> _userTransactions = [
     // Transaction(
     //   id: 't1',
@@ -69,6 +69,23 @@ class _MyHomePageState extends State<MyHomePage> {
     // ),
   ];
   bool _showChart = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    print(state);
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+  }
 
   void _addNewTransaction(String title, double amount, DateTime selectedDate) {
     final newTransaction = Transaction(
@@ -99,7 +116,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _addTransaction(BuildContext context) {
     showModalBottomSheet(
-
       context: context,
       builder: (_) {
         return GestureDetector(
@@ -111,11 +127,55 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final mediaQuery = MediaQuery.of(context);
-    final isLandscape = mediaQuery.orientation == Orientation.landscape;
-    final PreferredSizeWidget appBar = Platform.isIOS
+  List<Widget> _buildLandscapeContent(MediaQueryData mediaQuery,
+      PreferredSizeWidget appBar, Widget trListWidget) {
+    return [
+      Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          Text(
+            'Show Chart',
+            style: Theme.of(context).textTheme.headline6,
+          ),
+          Switch.adaptive(
+            activeColor: Theme.of(context).accentColor,
+            value: _showChart,
+            onChanged: (status) {
+              setState(() {
+                _showChart = status;
+              });
+            },
+          ),
+        ],
+      ),
+      _showChart
+          ? Container(
+              height: (mediaQuery.size.height -
+                      appBar.preferredSize.height -
+                      mediaQuery.padding.top) *
+                  0.7,
+              child: Chart(_recentTransactions),
+            )
+          : trListWidget
+    ];
+  }
+
+  List<Widget> _buildPortraitContent(MediaQueryData mediaQuery,
+      PreferredSizeWidget appBar, Widget trListWidget) {
+    return [
+      Container(
+        height: (mediaQuery.size.height -
+                appBar.preferredSize.height -
+                mediaQuery.padding.top) *
+            0.3,
+        child: Chart(_recentTransactions),
+      ),
+      trListWidget
+    ];
+  }
+
+  Widget _buildPlatformAppBar() {
+    return Platform.isIOS
         ? CupertinoNavigationBar(
             middle: Text('Expense planner'),
             trailing: Row(
@@ -124,7 +184,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 GestureDetector(
                   child: Icon(CupertinoIcons.add),
                   onTap: () => _addTransaction(context),
-                )
+                ),
               ],
             ),
           )
@@ -137,6 +197,13 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
             ],
           );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final isLandscape = mediaQuery.orientation == Orientation.landscape;
+    final PreferredSizeWidget appBar = _buildPlatformAppBar();
 
     final trListWidget = Container(
       height: (mediaQuery.size.height -
@@ -152,40 +219,9 @@ class _MyHomePageState extends State<MyHomePage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             if (isLandscape)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  Text('Show Chart', style: Theme.of(context).textTheme.headline6,),
-                  Switch.adaptive(
-                    activeColor: Theme.of(context).accentColor,
-                    value: _showChart,
-                    onChanged: (status) {
-                      setState(() {
-                        _showChart = status;
-                      });
-                    },
-                  ),
-                ],
-              ),
+              ..._buildLandscapeContent(mediaQuery, appBar, trListWidget),
             if (!isLandscape)
-              Container(
-                height: (mediaQuery.size.height -
-                        appBar.preferredSize.height -
-                        mediaQuery.padding.top) *
-                    0.3,
-                child: Chart(_recentTransactions),
-              ),
-            if (!isLandscape) trListWidget,
-            if (isLandscape)
-              _showChart
-                  ? Container(
-                      height: (mediaQuery.size.height -
-                              appBar.preferredSize.height -
-                              mediaQuery.padding.top) *
-                          0.7,
-                      child: Chart(_recentTransactions),
-                    )
-                  : trListWidget,
+              ..._buildPortraitContent(mediaQuery, appBar, trListWidget),
           ],
         ),
       ),
